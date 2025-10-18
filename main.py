@@ -154,6 +154,10 @@ def execute_soql_query(query: str) -> dict[str, Any]:
     Returns:
         Dictionary containing query, rows, row_count, and columns.
 
+    IMPORTANT: Before constructing SOQL queries, please read the official documentation:
+        https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+        Understanding the syntax and best practices will help generate more accurate queries.
+
     Important SOQL Rules:
         1. CANNOT use SELECT * - You MUST specify column names explicitly
         2. Aggregate queries (using COUNT, SUM, AVG, etc.) CANNOT use LIMIT
