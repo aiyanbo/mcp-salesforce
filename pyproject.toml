@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-salesforce"
+version = "0.1.0"
+description = "MCP server for Salesforce integration"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp>=0.1.0",
+    "simple-salesforce>=1.12.6",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+mcp-salesforce = "main:mcp.run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["main.py"]
