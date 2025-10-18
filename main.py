@@ -174,6 +174,12 @@ def execute_soql_query(query: str) -> dict[str, Any]:
     if rows:
         columns = list(rows[0].keys())
 
+    # Handle aggregate queries (e.g., SELECT COUNT() FROM Account)
+    # When totalSize > 0 but columns and rows are empty
+    if result["totalSize"] > 0 and not columns and not rows:
+        columns = ["cnt"]
+        rows = [{"cnt": result["totalSize"]}]
+
     # Format the response
     return {
         "query": query,
