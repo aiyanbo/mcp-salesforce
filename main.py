@@ -163,7 +163,8 @@ def get_soql_help() -> dict[str, Any]:
                 "Cannot use SELECT * - must specify fields explicitly",
                 "No JOIN keyword - use relationship queries instead",
                 "Case-insensitive field and object names",
-                "Limited to querying one object type per query (but can traverse relationships)"
+                "Limited to querying one object type per query (but can traverse relationships)",
+                "No CASE WHEN statements - SOQL does not support conditional expressions"
             ]
         },
 
@@ -370,7 +371,9 @@ def get_soql_help() -> dict[str, Any]:
                 "Aggregate queries return different result structure",
                 "Simple aggregate queries (e.g., SELECT COUNT() FROM Account) return a single result and CANNOT use LIMIT",
                 "Aggregate queries WITH GROUP BY CAN use LIMIT to limit the number of groups returned",
-                "Must use GROUP BY when mixing aggregate and non-aggregate fields"
+                "Must use GROUP BY when mixing aggregate and non-aggregate fields",
+                "SOQL does NOT support CASE WHEN statements for conditional aggregation (e.g., COUNT(CASE WHEN ...) is not allowed)",
+                "To filter aggregate results, use WHERE clause before aggregation or use GROUP BY with multiple queries"
             ],
             "examples": [
                 {
@@ -392,6 +395,14 @@ def get_soql_help() -> dict[str, Any]:
                 {
                     "description": "Aggregate with alias",
                     "query": "SELECT Industry, COUNT(Id) total FROM Account GROUP BY Industry"
+                },
+                {
+                    "description": "Conditional counting workaround - use separate queries",
+                    "query": "-- Query 1: SELECT COUNT(Id) total_count FROM Opportunity WHERE CloseDate = TODAY\n-- Query 2: SELECT COUNT(Id) won_count FROM Opportunity WHERE CloseDate = TODAY AND IsWon = true"
+                },
+                {
+                    "description": "Conditional counting workaround - use GROUP BY",
+                    "query": "SELECT IsWon, COUNT(Id) count FROM Opportunity WHERE CloseDate = TODAY GROUP BY IsWon"
                 }
             ]
         },
@@ -540,12 +551,18 @@ def get_soql_help() -> dict[str, Any]:
             {
                 "error": "invalid SOQL query",
                 "solution": "Check syntax, field names, and object names carefully."
+            },
+            {
+                "error": "unexpected token: 'COUNT(CASE WHEN'",
+                "solution": "SOQL does not support CASE WHEN statements. Use GROUP BY to separate conditions, or execute multiple queries with different WHERE clauses. Example: Instead of COUNT(CASE WHEN IsWon = true THEN 1 END), use GROUP BY IsWon or run separate queries."
             }
         ],
 
         "limitations": [
             "Maximum 50,000 rows returned per query (in most contexts)",
             "No SELECT * support",
+            "No CASE WHEN statements or conditional expressions",
+            "No conditional aggregation (e.g., COUNT(CASE WHEN ...) not supported)",
             "Parent-to-child subqueries: only 1 level deep (cannot nest subqueries within subqueries)",
             "Child-to-parent relationship traversal: maximum 5 levels (e.g., Account.Owner.Manager.Role.Name)",
             "Cannot use LIMIT with simple aggregate queries (e.g., SELECT COUNT() FROM Account LIMIT 10)",
