@@ -220,6 +220,11 @@ def get_soql_help() -> dict[str, Any]:
                 "logical": ["AND", "OR", "NOT"],
                 "special": ["LIKE", "IN", "NOT IN", "INCLUDES", "EXCLUDES"]
             },
+            "operator_notes": {
+                "INCLUDES": "ONLY works with multi-select picklist fields. Checks if the field includes specified values (semi-colon separated in data).",
+                "EXCLUDES": "ONLY works with multi-select picklist fields. Checks if the field excludes specified values.",
+                "important": "INCLUDES and EXCLUDES cannot be used with regular text, number, or single-select picklist fields"
+            },
             "examples": [
                 {
                     "description": "Equality comparison",
@@ -244,15 +249,93 @@ def get_soql_help() -> dict[str, Any]:
                 {
                     "description": "NULL check",
                     "query": "SELECT Id, Name FROM Account WHERE Phone != NULL"
+                },
+                {
+                    "description": "INCLUDES with multi-select picklist",
+                    "query": "SELECT Id, Name FROM Product WHERE Features__c INCLUDES ('Feature1', 'Feature2')"
+                },
+                {
+                    "description": "EXCLUDES with multi-select picklist",
+                    "query": "SELECT Id, Name FROM Product WHERE Features__c EXCLUDES ('DeprecatedFeature')"
                 }
             ]
         },
 
+        "string_escaping_and_security": {
+            "description": "Proper string escaping is essential to prevent SOQL injection and handle special characters",
+            "single_quote_escaping": {
+                "description": "Single quotes in string literals must be escaped",
+                "methods": [
+                    "Backslash escape: 'O\\'Brien' (preferred)",
+                    "Double single quote: 'O''Brien' (alternative)"
+                ],
+                "examples": [
+                    {
+                        "description": "Name with apostrophe",
+                        "query": "SELECT Id, Name FROM Account WHERE Name = 'O\\'Brien Industries'"
+                    },
+                    {
+                        "description": "Search term with quote",
+                        "query": "SELECT Id FROM Contact WHERE LastName LIKE 'D\\'%'"
+                    }
+                ]
+            },
+            "like_wildcard_escaping": {
+                "description": "Special characters in LIKE patterns must be escaped with backslash",
+                "wildcards": {
+                    "%": "Matches zero or more characters",
+                    "_": "Matches exactly one character",
+                    "\\\\": "Literal backslash (escape the backslash itself)"
+                },
+                "escape_characters": ["\\%", "\\_", "\\\\"],
+                "examples": [
+                    {
+                        "description": "Search for literal percent sign",
+                        "query": "SELECT Id FROM Account WHERE Name LIKE '%\\%%'"
+                    },
+                    {
+                        "description": "Search for literal underscore",
+                        "query": "SELECT Id FROM Product WHERE Code LIKE 'ABC\\_123%'"
+                    }
+                ]
+            },
+            "soql_injection_prevention": {
+                "description": "SOQL injection is a serious security risk when building dynamic queries",
+                "best_practices": [
+                    "NEVER concatenate user input directly into SOQL strings",
+                    "Use parameterized queries or bind variables when available in your platform",
+                    "Validate and sanitize all user input before using in queries",
+                    "Escape single quotes in user-provided strings",
+                    "Use allowlist validation for field names and object names (never trust user input for these)",
+                    "Limit query permissions using sharing rules and field-level security"
+                ],
+                "dangerous_example": "// DANGEROUS: SELECT Id FROM Account WHERE Name = '" + userInput + "'",
+                "safe_example": "// SAFE: Escape single quotes: userInput.replace('\\'', '\\\\\\'') or use platform's bind variables"
+            }
+        },
+
         "relationship_queries": {
             "description": "SOQL uses relationship queries instead of JOINs to query related objects",
+            "naming_conventions": {
+                "description": "Understanding relationship naming is crucial for SOQL queries",
+                "rules": [
+                    "Standard relationships: use plural forms (Contacts, Opportunities, Cases)",
+                    "Custom objects: end with __c (e.g., Custom_Object__c)",
+                    "Custom fields: end with __c (e.g., Custom_Field__c)",
+                    "Custom relationship fields (lookup/master-detail): use __r NOT __c when querying parent (e.g., Account__r.Name, not Account__c.Name)",
+                    "Child-to-parent: RelationshipName__r for custom, RelationshipName for standard",
+                    "Parent-to-child: RelationshipName__r (plural) for custom relationships"
+                ],
+                "examples": [
+                    "Standard: SELECT Id, Account.Name FROM Contact (child to parent)",
+                    "Custom lookup: SELECT Id, Account__r.Name FROM Custom_Object__c (use __r not __c)",
+                    "Custom child records: SELECT Id, (SELECT Id, Name FROM Custom_Children__r) FROM Custom_Parent__c"
+                ]
+            },
             "parent_to_child": {
                 "description": "Query child records from parent (subquery)",
                 "syntax": "SELECT Id, (SELECT Id, Field FROM ChildObject) FROM ParentObject",
+                "limitation": "Parent-to-child subqueries can only be 1 level deep. You CANNOT nest subqueries within subqueries.",
                 "examples": [
                     {
                         "description": "Get Account with related Contacts",
@@ -267,6 +350,7 @@ def get_soql_help() -> dict[str, Any]:
             "child_to_parent": {
                 "description": "Query parent fields from child record",
                 "syntax": "SELECT Id, ParentObject.Field FROM ChildObject",
+                "limitation": "Child-to-parent relationship traversal can go up to 5 levels deep using dot notation.",
                 "examples": [
                     {
                         "description": "Get Contact with Account name",
@@ -284,7 +368,8 @@ def get_soql_help() -> dict[str, Any]:
             "functions": ["COUNT()", "COUNT(field)", "COUNT_DISTINCT()", "SUM()", "AVG()", "MIN()", "MAX()"],
             "important_notes": [
                 "Aggregate queries return different result structure",
-                "Cannot use LIMIT with COUNT() - it returns a single result",
+                "Simple aggregate queries (e.g., SELECT COUNT() FROM Account) return a single result and CANNOT use LIMIT",
+                "Aggregate queries WITH GROUP BY CAN use LIMIT to limit the number of groups returned",
                 "Must use GROUP BY when mixing aggregate and non-aggregate fields"
             ],
             "examples": [
@@ -349,10 +434,33 @@ def get_soql_help() -> dict[str, Any]:
         },
 
         "date_functions": {
-            "date_literals": ["TODAY", "YESTERDAY", "TOMORROW", "THIS_WEEK", "LAST_WEEK", "THIS_MONTH", "LAST_MONTH",
-                              "THIS_YEAR", "LAST_YEAR"],
+            "date_literals": {
+                "fixed": ["TODAY", "YESTERDAY", "TOMORROW", "THIS_WEEK", "LAST_WEEK", "THIS_MONTH", "LAST_MONTH",
+                          "THIS_YEAR", "LAST_YEAR", "NEXT_WEEK", "NEXT_MONTH", "NEXT_YEAR",
+                          "LAST_90_DAYS", "NEXT_90_DAYS", "THIS_QUARTER", "LAST_QUARTER", "NEXT_QUARTER",
+                          "THIS_FISCAL_QUARTER", "LAST_FISCAL_QUARTER", "NEXT_FISCAL_QUARTER",
+                          "THIS_FISCAL_YEAR", "LAST_FISCAL_YEAR", "NEXT_FISCAL_YEAR"],
+                "parameterized": [
+                    "LAST_N_DAYS:n (e.g., LAST_N_DAYS:7 for last 7 days)",
+                    "NEXT_N_DAYS:n (e.g., NEXT_N_DAYS:30 for next 30 days)",
+                    "LAST_N_WEEKS:n (e.g., LAST_N_WEEKS:4)",
+                    "NEXT_N_WEEKS:n (e.g., NEXT_N_WEEKS:2)",
+                    "LAST_N_MONTHS:n (e.g., LAST_N_MONTHS:6)",
+                    "NEXT_N_MONTHS:n (e.g., NEXT_N_MONTHS:3)",
+                    "LAST_N_QUARTERS:n (e.g., LAST_N_QUARTERS:2)",
+                    "NEXT_N_QUARTERS:n (e.g., NEXT_N_QUARTERS:1)",
+                    "LAST_N_YEARS:n (e.g., LAST_N_YEARS:5)",
+                    "NEXT_N_YEARS:n (e.g., NEXT_N_YEARS:2)",
+                    "LAST_N_FISCAL_QUARTERS:n",
+                    "NEXT_N_FISCAL_QUARTERS:n",
+                    "LAST_N_FISCAL_YEARS:n",
+                    "NEXT_N_FISCAL_YEARS:n"
+                ]
+            },
             "date_functions": ["CALENDAR_YEAR()", "CALENDAR_MONTH()", "CALENDAR_QUARTER()", "DAY_IN_MONTH()",
-                               "DAY_IN_WEEK()", "DAY_IN_YEAR()", "WEEK_IN_MONTH()", "WEEK_IN_YEAR()"],
+                               "DAY_IN_WEEK()", "DAY_IN_YEAR()", "WEEK_IN_MONTH()", "WEEK_IN_YEAR()",
+                               "HOUR_IN_DAY()", "DAY_ONLY()", "CALENDAR_MONTH()", "FISCAL_MONTH()",
+                               "FISCAL_QUARTER()", "FISCAL_YEAR()"],
             "examples": [
                 {
                     "description": "Query records from today",
@@ -408,7 +516,8 @@ def get_soql_help() -> dict[str, Any]:
             "Use relationship queries instead of multiple queries when possible",
             "Test queries with small LIMIT first, then increase as needed",
             "Use ORDER BY with LIMIT for consistent pagination results",
-            "Consider using aggregate queries for counts instead of retrieving all records"
+            "Consider using aggregate queries for counts instead of retrieving all records",
+            "NEVER use WHERE 1=1 - it's unnecessary and inefficient in SOQL queries"
         ],
 
         "common_errors": [
@@ -426,7 +535,7 @@ def get_soql_help() -> dict[str, Any]:
             },
             {
                 "error": "aggregate result cannot be used with LIMIT",
-                "solution": "Remove LIMIT from COUNT() queries or use GROUP BY with HAVING clause instead."
+                "solution": "This occurs with simple aggregate queries like SELECT COUNT() FROM Account LIMIT 10. Remove LIMIT from simple aggregate queries. Note: LIMIT CAN be used with GROUP BY aggregate queries."
             },
             {
                 "error": "invalid SOQL query",
@@ -437,9 +546,10 @@ def get_soql_help() -> dict[str, Any]:
         "limitations": [
             "Maximum 50,000 rows returned per query (in most contexts)",
             "No SELECT * support",
-            "Limited subquery depth (typically 1-2 levels)",
-            "Cannot query more than 5 levels of parent-to-child relationships",
-            "Cannot use LIMIT with COUNT() aggregate function",
+            "Parent-to-child subqueries: only 1 level deep (cannot nest subqueries within subqueries)",
+            "Child-to-parent relationship traversal: maximum 5 levels (e.g., Account.Owner.Manager.Role.Name)",
+            "Cannot use LIMIT with simple aggregate queries (e.g., SELECT COUNT() FROM Account LIMIT 10)",
+            "LIMIT CAN be used with GROUP BY aggregate queries",
             "Some fields are not queryable or filterable"
         ],
 
