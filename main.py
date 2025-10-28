@@ -309,8 +309,8 @@ def get_soql_help() -> dict[str, Any]:
                     "Use allowlist validation for field names and object names (never trust user input for these)",
                     "Limit query permissions using sharing rules and field-level security"
                 ],
-                "dangerous_example": "// DANGEROUS: SELECT Id FROM Account WHERE Name = '" + userInput + "'",
-                "safe_example": "// SAFE: Escape single quotes: userInput.replace('\\'', '\\\\\\'') or use platform's bind variables"
+                "dangerous_example": "// DANGEROUS: SELECT Id FROM Account WHERE Name = '<userInput>'",
+                "safe_example": "// SAFE: Escape single quotes: userInput.replace(\"'\", \"\\\\'\") or use platform's bind variables"
             }
         },
 
